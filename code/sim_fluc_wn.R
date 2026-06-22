@@ -1,11 +1,12 @@
-# OU simulation with fluctuating selection
-# Optimum resampled every time, and along SLLR if there is
+# Simulation of evolution under fluctuating selection
+# Optimum is resampled periodically, and the main axis of distribution is aligned with SLLR if applicable
+# z1 and z2 in the simulation code are positive trait values
 
 library(mvtnorm) # To sample from multivariate normal distribution
 library(resample) # To use colVars
 library(ggplot2)
 
-setwd("/Users/rexjiang/Desktop/novelty/ver_3/serial_homology/out_fluc_wn")
+setwd("your_dir")
 
 # Function to calculate fitness
 fitness_calc<-function(z,opt,omega){
@@ -262,89 +263,13 @@ for(row in 1:nrow(par_plot_all)){
   signif[row,1]=cor(d_new$n_p,d_new$geow)
   signif[row,2]=cor.test(d_new$n_p,d_new$geow)$p.value
   
-  #g<-ggplot(d_new,aes(x=n_p,y=geow))
-  #g=g+geom_point()+geom_smooth(method="loess")+scale_x_continuous(breaks =c(0,.2,.4,.6,.8,1))+ylim(0,1)
-  #g=g+theme_classic()+xlab("")+ylab("")
-  #fn=paste("plot_geo_fluc_wn_",par_plot[2],"_",par_plot[1],".pdf",sep="")
-  #ggsave(fn,plot=g,width=7,height=5)
+  g<-ggplot(d_new,aes(x=n_p,y=geow))
+  g=g+geom_point()+geom_smooth(method="loess")+scale_x_continuous(breaks =c(0,.2,.4,.6,.8,1))+ylim(0,1)
+  g=g+theme_classic()+xlab("")+ylab("")
+  fn=paste("plot_geo_fluc_wn_",par_plot[2],"_",par_plot[1],".pdf",sep="")
+  ggsave(fn,plot=g,width=7,height=5)
 }
 signif=cbind(par_plot_all,signif)
 colnames(signif)=c("fluc_rate","selection_cor","cor","pv")
 write.table(data.frame(signif),file="w_geomean_fluc_wn_cor.txt")
 
-# Extinction risk analysis
-d_mean<-read.table("w_mean_time_fluc_wn.txt",sep="\t")#;d_mean$n_p=d_mean$n_p/max(d_mean$n_p);d_mean=d_mean[which(d_mean$r_m==0.9),]
-d_var<-read.table("w_var_time_fluc_wn.txt",sep="\t")#;d_var$n_p=d_var$n_p/max(d_var$n_p);d_var=d_var[which(d$r_m==0.9),]
-er=matrix(0,nrow=nrow(d_mean),ncol=ncol(d_mean)-4) # Data matrix to store extinction risk over time
-k=2 # Function shape (more concave for greater value)
-er_max=0.01 # Maximum risk (contribution of focal traits to extinction risk)
-for(c in 1:nrow(er)){
-  w_low=d_mean[c,5:ncol(d_mean)]-sqrt(d_var[c,5:ncol(d_mean)]) # Mean fitness - SD of fitness
-  #w_low=d_mean[c,5:ncol(d_mean)]
-  w_low=as.numeric(w_low) # Convert to numeric vector
-  er[c,]=er_max*(1-exp(k*(w_low-1))) # Calculate risk
-}
-# Cumulative extinction risk
-er_cum=er
-for(c in 1:nrow(er)){
-  for(t in 2:ncol(er)){
-    er_cum[c,t]=1-prod(1-er[c,1:t])
-  }
-}
-# Write data file
-write.table(data.frame(d_mean[,1:4],er),file="er_fluc_wn.txt",sep="\t")
-write.table(data.frame(d_mean[,1:4],er_cum),file="er_cum_fluc_wn.txt",sep="\t")
-
-d<-read.table("er_fluc_wn.txt",sep="\t") # Re-read data file
-d$n_p=d$n_p/max(d$n_p) # Convert to fractions
-d=d[which(d$r_m==0.9),] # Focus on scenarios where the regulators have similar binding preference
-for(row in 1:nrow(par_plot_all)){
-  # Extract the row corresponding to the focal parameter combination
-  par_plot=par_plot_all[row,]
-  d_sub=d[which(d$sd_fluc==par_plot[1]&d$r_selection==par_plot[2]),]
-  
-  # Rearrange into a format that can be used for ggplot
-  d_new=cbind(rep(d_sub$n_p[1],ncol(d_sub)-4),1:(ncol(d_sub)-4),as.numeric(d_sub[1,5:ncol(d_sub)]))
-  for(i in 2:length(unique(d_sub$n_p))){
-    d_new=rbind(d_new,cbind(rep(d_sub$n_p[i],ncol(d_sub)-4),1:(ncol(d_sub)-4),as.numeric(d_sub[i,5:ncol(d_sub)])))
-  }
-  colnames(d_new)=c("n_p","t","er_cum") # Name the columns
-  d_new=data.frame(d_new) # Convert to data frame
-  d_new$n_p=factor(d_new$n_p,levels=sort(unique(d_new$n_p)),ordered=TRUE) # Factorize
-  g<-ggplot(d_new,aes(x=t,y=er_cum,colour=n_p)) 
-  g=g+geom_point()+geom_line(lwd=1)+ylim(0,1)
-  g=g+theme_classic()+xlab("")+ylab("") # Clean up axis labels (to be added after combining panels)
-  g=g+labs(color=NULL) # Remove legend title (to be manually re-added)
-  g=g+guides(color=guide_legend(override.aes=list(shape=15,size=6,linetype=0))) # Replace dots in the legend with boxes
-  
-  # Save the plots
-  fn=paste("plot_er_fluc_wn_",par_plot[2],"_",par_plot[1],".pdf",sep="")
-  ggsave(fn,plot=g,width=7,height=5)
-}
-
-d<-read.table("er_cum_fluc_wn.txt",sep="\t") # Re-read data file
-d$n_p=d$n_p/max(d$n_p) # Convert to fractions
-d=d[which(d$r_m==0.9),] # Focus on scenarios where the regulators have similar binding preference
-for(row in 1:nrow(par_plot_all)){
-  # Extract the row corresponding to the focal parameter combination
-  par_plot=par_plot_all[row,]
-  d_sub=d[which(d$sd_fluc==par_plot[1]&d$r_selection==par_plot[2]),]
-  
-  # Rearrange into a format that can be used for ggplot
-  d_new=cbind(rep(d_sub$n_p[1],ncol(d_sub)-4),1:(ncol(d_sub)-4),as.numeric(d_sub[1,5:ncol(d_sub)]))
-  for(i in 2:length(unique(d_sub$n_p))){
-    d_new=rbind(d_new,cbind(rep(d_sub$n_p[i],ncol(d_sub)-4),1:(ncol(d_sub)-4),as.numeric(d_sub[i,5:ncol(d_sub)])))
-  }
-  colnames(d_new)=c("n_p","t","er_cum") # Name the columns
-  d_new=data.frame(d_new) # Convert to data frame
-  d_new$n_p=factor(d_new$n_p,levels=sort(unique(d_new$n_p)),ordered=TRUE) # Factorize
-  g<-ggplot(d_new,aes(x=t,y=er_cum,colour=n_p)) 
-  g=g+geom_point()+geom_line(lwd=1)+ylim(0,1)
-  g=g+theme_classic()+xlab("")+ylab("") # Clean up axis labels (to be added after combining panels)
-  g=g+labs(color=NULL) # Remove legend title (to be manually re-added)
-  g=g+guides(color=guide_legend(override.aes=list(shape=15,size=6,linetype=0))) # Replace dots in the legend with boxes
-  
-  # Save the plots
-  fn=paste("plot_er_cum_fluc_wn_",par_plot[2],"_",par_plot[1],".pdf",sep="")
-  ggsave(fn,plot=g,width=7,height=5)
-}
