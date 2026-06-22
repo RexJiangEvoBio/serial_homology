@@ -1,0 +1,205 @@
+// Simulate the evolution of 2 serial homologues (SHs) with conserved identities
+// Simulate log-scale binding affinity and phenotype only
+
+initialize(){
+    // Population size
+    defineConstant("N",1e3);
+    
+    // Simulation time
+    defineConstant("time",10*N);
+    
+    // Number of populations
+    defineConstant("npop",1);
+    
+    // Constants related to the regulatory architecture
+    defineConstant("affinity_ances",1); // Ancestral binding affinity between cis-element and TF (assumed to be the same for all cis-elements and SHs)
+    defineConstant("phe_effect",0.1); // Effect of each cis-element on character state (assumed to be the same for all cis-elements and SHs)
+    
+    // Set mutation parameters (assumed to be the same among genes of the same category)
+    initializeMutationRate(1e-7); // Mutation rate per mutable genomic element
+    defineConstant("mut_cis_mean",0); // Mean effect of cis-mutations on binding affinity (log-scale)
+    defineConstant("mut_cis_sd",1); // SD of effect of cis-mutations on binding affinity (log-scale)
+    defineConstant("mut_cis_mat_share",(mut_cis_sd^2)*matrix(c(1,0.9,0.9,1),nrow=2)); // Covariance matrix for effect of cis-mutations in shared targets of two regulators
+    
+    // Set mutation types
+    initializeMutationType("m1",0.5,"n",0,0.5); // cis-mutations affecting unique targets of regulator 1
+    initializeMutationType("m2",0.5,"n",0,0.5); // cis-mutations affecting unique targets of regulator 2
+    initializeMutationType("m3",0.5,"n",0,0.5); // cis-mutations affecting shared targets of 2 regulators
+    m1.convertToSubstitution=F;m2.convertToSubstitution=F;m3.convertToSubstitution=F; // Do not convert any mutation to Substitution
+    
+    // Genomic element types (cis-elements of effector genes; each following an infinite-sites model)
+    initializeGenomicElementType("g1",m1,1); // unique targets of regulator 1
+    initializeGenomicElementType("g2",m2,1); // unique targets of regulator 2
+    initializeGenomicElementType("g3",m3,1); // shared targets of 2 regulators
+    
+    // Initialize genomic elements
+    defineConstant("num_cis",50); // Number of effector genes
+    defineConstant("num_share",0); // Number of effector genes whose cis-elements are shared targets of 2 regulators
+    defineConstant("num_unique",num_cis-num_share); // Number of unique targets per IDG
+    if(num_share==0){ // If there are no shared targets, initialize unique targets only
+        initializeGenomicElement(g1,0,num_cis-1);
+        initializeGenomicElement(g2,num_cis,2*num_cis-1);
+    }else{
+        initializeGenomicElement(g3,0,num_share-1); // Initialize shared targets
+        if(num_share<num_cis){ // If there are unique targets, initialize them
+            initializeGenomicElement(g1,num_share,num_share+num_unique-1);
+            initializeGenomicElement(g2,num_share+num_unique,num_share+2*num_unique-1);
+        }
+    }
+    
+    // Compute ancestral phenotype
+    defineConstant("z1_ances",2*num_cis*log(affinity_ances)*phe_effect); // Ancestral state of SH1 (log-scale)
+    defineConstant("z2_ances",2*num_cis*log(affinity_ances)*phe_effect); // Ancestral state of SH2 (log-scale)
+    
+    initializeRecombinationRate(0.5); // Free recombination between genes (relative location does not matter)
+    
+    // Selection parameters
+    // Fold difference between optimum and ancestral states (log-scale)
+    defineConstant("opt_div_1",log(100));
+    defineConstant("opt_div_2",-log(100));
+    defineConstant("opt",c(z1_ances+opt_div_1,z2_ances+opt_div_2)); // Optimal phenotype (original scale)
+    defineConstant("selection_var",1); // Variance of Gaussian fitness function (of Euclidean distance to optimum after log-transformation)
+    
+    // Parameters for correlational selection
+    //defineConstant("selection_cor",0); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
+    //defineConstant("eval",selection_var*c(1,1)); // Eigenvalues of S-matrix (calculated outside SLiM)
+    //defineConstant("evec",matrix(c(0,1,-1,0),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
+    //defineConstant("evec",matrix(c(0,-1,1,0),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
+    
+    //defineConstant("selection_cor",0.9); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
+    //defineConstant("eval",selection_var*c(1.9,0.1)); // Eigenvalues of S-matrix (calculated outside SLiM)
+    //defineConstant("evec",matrix(c(0.7071068,0.7071068,-0.7071068,0.7071068),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
+    
+    defineConstant("selection_cor",-0.9); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
+    defineConstant("eval",selection_var*c(1.9,0.1)); // Eigenvalues of S-matrix (calculated outside SLiM)
+    defineConstant("evec",matrix(c(-0.7071068,-0.7071068,0.7071068,-0.7071068),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
+    
+}
+
+1 early(){
+    catn(z1_ances);
+    catn(z2_ances);
+    catn(opt);
+}
+
+// Create populations
+1 late(){
+    //sim.addSubpop("p0", N);
+    for(i in 0:(npop-1)){
+        sim.addSubpop(i,N);
+    }
+    for(i in 0:(npop-1)){
+        for(j in 0:(npop-1)){
+            if(i != j){sim.subpopulations[i].setMigrationRates(j,0);} // Set all migration rates as zero such that each population is an independent lineage
+        }
+    }
+}
+
+// Callback (function) for sampling mutation effetcs (called every time a mutation is generated)
+// Saved values of mutational effects are log-scale
+mutation(m1){
+    effect=rnorm(1,mut_cis_mean,mut_cis_sd);
+    mut.setValue("eA1",effect);
+    mut.setValue("eA2",0);
+    effects=c(effect,0);
+    old_effects=sim.getValue("all_effects_A");
+    sim.setValue("all_effects_A",rbind(old_effects,effects));
+    return T;
+}
+
+mutation(m2){
+    effect=rnorm(1,mut_cis_mean,mut_cis_sd);
+    mut.setValue("eA1",0);
+    mut.setValue("eA2",effect);
+    effects=c(0,effect);
+    old_effects=sim.getValue("all_effects_A");
+    sim.setValue("all_effects_A",rbind(old_effects,effects));
+    return T;
+}
+
+mutation(m3){
+    effects=rmvnorm(1,rep(mut_cis_mean,2),mut_cis_mat_share);
+    mut.setValue("eA1",effects[0]);
+    mut.setValue("eA2",effects[1]);
+    old_effects=sim.getValue("all_effects_A");
+    sim.setValue("all_effects_A",rbind(old_effects, effects));
+    return T;
+}
+
+// Calculate phenotype given mutation effects
+late(){
+    for(ind in sim.subpopulations.individuals){ // go through individuals in the population
+        // Vectors containing all mutations of each type
+        muts1=c(ind.haploidGenome1.mutationsOfType(m1),ind.haploidGenome2.mutationsOfType(m1));
+        muts2=c(ind.haploidGenome1.mutationsOfType(m2),ind.haploidGenome2.mutationsOfType(m2));
+        muts3=c(ind.haploidGenome1.mutationsOfType(m3),ind.haploidGenome2.mutationsOfType(m3));
+        
+        
+        // Total effect of each class of mutations on binding affinity (log-scale)
+        delta_unique_1=size(muts1)?sum(muts1.getValue("eA1")) else 0; // Mutations' effect on interaction between regulator 1 and its unique targets
+        delta_unique_2=size(muts2)?sum(muts2.getValue("eA2")) else 0; // Mutations' effect on interaction between regulator 1 and its unique targets
+        delta_share_1=size(muts3)?sum(muts3.getValue("eA1")) else 0; // Mutations' effect on interaction between shared targets and regulator 1
+        delta_share_2=size(muts3)?sum(muts3.getValue("eA2")) else 0; // Mutations' effect on interaction between shared targets and regulator 2
+        
+        
+        
+        z1=phe_effect*(2*num_cis*log(affinity_ances)+delta_unique_1+delta_share_1);ind.setValue("z1",z1); // Character state of SH1
+        z2=phe_effect*(2*num_cis*log(affinity_ances)+delta_unique_2+delta_share_2);ind.setValue("z2",z2); // Character state of SH2
+        
+        
+        // Calculate distance to optimum for each SH
+        d1=z1-opt[0];
+        d2=z2-opt[1];
+        D=(d1^2+d2^2)^0.5; // Euclidean distance to optimum
+        ind.fitnessScaling=exp(-D^2/(2*selection_var)); // Calculate fitness
+        
+        // Projection on eigenvectors of S-matrix
+        //d1p=d1*evec[0,0]+d2*evec[1,0];
+        //d2p=d1*evec[0,1]+d2*evec[1,1];
+        //ind.fitnessScaling=exp(-(d1p^2/(2*eval[0])+d2p^2/(2*eval[1]))^0.5);
+        
+    }
+}
+
+// Trajectory of evolution
+1: late(){
+    lines=NULL;
+    if(sim.cycle%100==0){ // Write every 100 generations
+        for(i in 0:(npop-1)){
+            inds=sim.subpopulations[i].individuals;
+            // Population means
+            z1_pop_mean=mean(inds.getValue("z1"));
+            z2_pop_mean=mean(inds.getValue("z2"));
+            // Within-population variances
+            vg1=var(inds.getValue("z1"));
+            vg2=var(inds.getValue("z2"));
+            cor_g=cor(inds.getValue("z1"),inds.getValue("z2")); // Within-population correlation between SHs
+            outLine=paste0(sim.cycle,"\t",i+1,"\t",z1_pop_mean,"\t",z2_pop_mean,"\t",vg1,"\t",vg2,"\t",cor_g,"\n");
+            lines=c(lines,outLine);
+        }
+        file=paste0(lines);
+        cat(file);
+    }
+}
+
+// Examine results at the end of simulations
+time late(){
+    sim.simulationFinished();
+    lines_end=NULL;
+    for(i in 0:(npop-1)){
+        inds=sim.subpopulations[i].individuals;
+        // Population means
+        z1_pop_mean=mean(inds.getValue("z1"));
+        z2_pop_mean=mean(inds.getValue("z2"));
+        // Within-population variances
+        vg1=var(inds.getValue("z1"));
+        vg2=var(inds.getValue("z2"));
+        cor_g=cor(inds.getValue("z1"),inds.getValue("z2")); // Within-population correlation between SHs
+        outLine=paste0(i+1,"\t",z1_pop_mean,"\t",z2_pop_mean,"\t",vg1,"\t",vg2,"\t",cor_g,"\n");
+        lines_end=c(lines_end,outLine);
+    }
+    file_end=paste0(lines_end);
+    //cat(file_end);
+    //filename_end=paste0("/Users/rexjiang/Desktop/novelty/ver_2/slim/sim_out_end_",opt_div_1,"_",opt_div_2,"_",num_share,"_",selection_cor,".txt");
+    //writeFile(filename_end,file_end);
+}
