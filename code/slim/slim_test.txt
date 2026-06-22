@@ -61,18 +61,21 @@ initialize(){
     defineConstant("selection_var",1); // Variance of Gaussian fitness function (of Euclidean distance to optimum after log-transformation)
     
     // Parameters for correlational selection
-    //defineConstant("selection_cor",0); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
-    //defineConstant("eval",selection_var*c(1,1)); // Eigenvalues of S-matrix (calculated outside SLiM)
-    //defineConstant("evec",matrix(c(0,1,-1,0),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
-    //defineConstant("evec",matrix(c(0,-1,1,0),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
     
+    // Unmask the 3 lines below to simulate without correlational selection
+    defineConstant("selection_cor",0); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
+    defineConstant("eval",selection_var*c(1,1)); // Eigenvalues of S-matrix (calculated outside SLiM)
+    defineConstant("evec",matrix(c(0,1,-1,0),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
+    
+    // Unmask the 3 lines below to simulate with selection on proportion
     //defineConstant("selection_cor",0.9); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
     //defineConstant("eval",selection_var*c(1.9,0.1)); // Eigenvalues of S-matrix (calculated outside SLiM)
     //defineConstant("evec",matrix(c(0.7071068,0.7071068,-0.7071068,0.7071068),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
     
-    defineConstant("selection_cor",-0.9); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
-    defineConstant("eval",selection_var*c(1.9,0.1)); // Eigenvalues of S-matrix (calculated outside SLiM)
-    defineConstant("evec",matrix(c(-0.7071068,-0.7071068,0.7071068,-0.7071068),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
+    // Unmask the 3 lines below to simulate with a functional tradeoff between traits
+    //defineConstant("selection_cor",-0.9); // Correlation coefficient for correlational selection; not used in simulation but for writing output file only
+    //defineConstant("eval",selection_var*c(1.9,0.1)); // Eigenvalues of S-matrix (calculated outside SLiM)
+    //defineConstant("evec",matrix(c(-0.7071068,-0.7071068,0.7071068,-0.7071068),nrow=2)); // Eigenvectors of S-matrix (calculated outside SLiM); the 1st column corresponds to optimal scaling
     
 }
 
@@ -199,7 +202,6 @@ time late(){
         lines_end=c(lines_end,outLine);
     }
     file_end=paste0(lines_end);
-    //cat(file_end);
-    //filename_end=paste0("/Users/rexjiang/Desktop/novelty/ver_2/slim/sim_out_end_",opt_div_1,"_",opt_div_2,"_",num_share,"_",selection_cor,".txt");
-    //writeFile(filename_end,file_end);
+    filename_end=paste0("your_dir/sim_out_end_",opt_div_1,"_",opt_div_2,"_",num_share,"_",selection_cor,".txt");
+    writeFile(filename_end,file_end);
 }
