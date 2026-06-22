@@ -1,10 +1,13 @@
-# Simulate under OU process, with mutational parameters derived from a developmental model
+# Simulate the evolution of population mean phenotypes under selection 
+# Evolution modeled as an OU process
+# Mutational parameters are derived from a developmental model
+# z1 and z2 in the simulation code are positive trait values
 
 library(mvtnorm) # To sample from multivariate normal distribution
 library(resample) # To use colVars
 library(ggplot2)
 
-setwd("/Users/rexjiang/Desktop/novelty/ver_3/serial_homology/out_OU")
+setwd("your_dir")
 
 # Function to calculate fitness
 fitness_calc<-function(z,opt,omega) {
@@ -97,7 +100,7 @@ write.table(data.frame(par_all,z2_mean_time),file="mean_time_2.txt",sep="\t")
 write.table(data.frame(par_all,z1_var_time),file="var_time_1.txt",sep="\t")
 write.table(data.frame(par_all,z2_var_time),file="var_time_2.txt",sep="\t")
 
-# Plot z1 against time for selected scenarios of directional selection
+# Plot z1 (log-scale) against time for selected scenarios of directional selection
 d<-read.table("mean_time_1.txt",sep="\t")
 d=d[which(d$Ne==1e5),] # Pick the Ne to focus on
 d$n_p=d$n_p/max(d$n_p) # Convert to fractions
