@@ -13,4 +13,8 @@ Code to simulate evolution under fluctuating selection, with the adaptie peak fo
 Code to simulate evolution under fluctuating selection, with the adaptie peak following a WN model. Used to produce results shown in Fig. 4.
 
 # slim
+## slim_test.txt
 SLiM code for population genetic simulations.
+
+## plot_slim.R
+Code to analyze SLiM simulation results and make plots.
