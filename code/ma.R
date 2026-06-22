@@ -1,18 +1,10 @@
 # Sanity check: see if the distribution of mutant phenotypes are as expected using MA simulations
 # Simulation is agnostic to ploidy (given no dominance & ancestral phenotypic value is always 0)
 
-setwd("/Users/rexjiang/Desktop/novelty/ver_3/serial_homology/MA")
+setwd("your_dir")
 
-library(mvtnorm)
+library(mvtnorm) # To sample from multivariate normal distribution
 library(ggplot2)
-
-# Function to calculate fitness
-fitness_calc<-function(z,opt,omega) {
-  Lambda<-solve(omega)
-  D2<-t(z-opt)%*%Lambda%*%(z-opt)
-  w<-exp(-D2/2)
-  return(as.numeric(w))
-}
 
 # Simulate a single trait under
 n_cis=50 # Number of cis-elements affecting the trait
@@ -164,7 +156,7 @@ m_out=data.frame(par_all,m_out)
 colnames(m_out)=c("np","rm","v1","v2","cov","cor","p_cor","v_exp","cov_exp","cor_exp");rownames(m_out)=NULL
 write.table(m_out,file="m_mat_out.txt",sep="\t")
 
-# Plot
+# Plot (multiple scatter plots in one figure)
 g<-ggplot(d,aes(x=z1,y=z2))
 g=g+geom_point()+facet_grid(rows=vars(np),cols=vars(rm),axes="all")
 g=g+geom_smooth(method="lm")+theme_classic()
